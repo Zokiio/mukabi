@@ -13,7 +13,6 @@ import (
 	"github.com/disgoorg/disgo/handler"
 	"github.com/disgoorg/disgo/rest"
 	"github.com/disgoorg/disgo/sharding"
-	"github.com/disgoorg/snowflake/v2"
 	"github.com/topi314/tint"
 	"github.com/zokiio/mukabi/external"
 	"github.com/zokiio/mukabi/service/bot/db"
@@ -90,13 +89,13 @@ func (b *Bot) Start(commands []discord.ApplicationCommandCreate) error {
 	if b.Config.Bot.SyncCommands {
 		slog.Info("Syncing commands...")
 
-		// Clear existing commands
-		var emptyCommands []discord.ApplicationCommandCreate
-		var guildIDs []snowflake.ID
-		if err := handler.SyncCommands(b.Discord, emptyCommands, guildIDs); err != nil {
-			slog.Error("Failed to sync commands", tint.Err(err))
-			return err
-		}
+		// // Clear existing commands
+		// var emptyCommands []discord.ApplicationCommandCreate
+		// var guildIDs []snowflake.ID
+		// if err := handler.SyncCommands(b.Discord, emptyCommands, guildIDs); err != nil {
+		// 	slog.Error("Failed to sync commands", tint.Err(err))
+		// 	return err
+		// }
 
 		// Sync new commands
 		slog.Debug("Commands to sync", "commands", commands)

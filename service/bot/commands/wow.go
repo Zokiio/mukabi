@@ -54,24 +54,10 @@ var WowCommand = discord.SlashCommandCreate{
 			Description: "Character stats",
 			Options: []discord.ApplicationCommandOption{
 				&discord.ApplicationCommandOptionString{
-					Name:        "region",
-					Description: "Region of the character",
-					Required:    true,
-					Choices: []discord.ApplicationCommandOptionChoiceString{
-						{
-							Name:  "EU",
-							Value: "eu",
-						},
-						{
-							Name:  "US",
-							Value: "us",
-						},
-					},
-				},
-				&discord.ApplicationCommandOptionString{
-					Name:        "character",
-					Description: "Name of the character",
-					Required:    true,
+					Name:         "character",
+					Description:  "Name of the character",
+					Required:     true,
+					Autocomplete: true,
 				},
 			},
 		},
@@ -83,7 +69,9 @@ func (c *commands) OnRegisterCharacter(data discord.SlashCommandInteractionData,
 	realm := data.String("realm")
 	character := data.String("character")
 
-	characterData, err := c.Bot.External.RaiderIO().FetchCharacterProfile(region, realm, character)
+	characterData, err := c.Bot.External.RaiderIO().FetchCharacterProfile(region, realm, character, raiderio.WithFields(
+		raiderio.FieldMythicPlusScoresBySeason,
+	))
 	if err != nil {
 		slog.Warn("Character not found",
 			slog.String("region", region),
@@ -113,15 +101,34 @@ func (c *commands) OnRegisterCharacter(data discord.SlashCommandInteractionData,
 }
 
 func (c *commands) OnCharacterStats(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
-	// Extract the options from the command data
-	region := data.String("region")
 	character := data.String("character")
 
-	// TODO: Add Autocomplete for the character names
-	// TODO: Collect character data from the database
-	// TODO: Fetch character stats using RaiderIO
+	// Fetch character stats from the database
+	characterData, err := c.Database.WoWGetCharacter(e.GuildID().String(), e.User().ID.String(), character)
+	if err != nil {
+		slog.Error("Error fetching character stats:", slog.String("error", err.Error()))
+		return e.CreateMessage(res.CreateError("❌ Failed to fetch character stats. Please try again later."))
+	}
 
-	return e.CreateMessage(res.Create(fmt.Sprintf("Stats for character %s in region %s: [example stats here]", character, region)))
+	// Fetch character profile from RaiderIO
+	profile, err := c.Bot.External.RaiderIO().FetchCharacterProfile(characterData.Region, characterData.Realm, character, raiderio.WithFields(
+		raiderio.FieldMythicPlusScoresBySeason,
+	))
+	if err != nil {
+		slog.Warn("Character not found",
+			slog.String("region", characterData.Region),
+			slog.String("realm", characterData.Realm),
+			slog.String("character", character),
+			tint.Err(err),
+		)
+		return e.CreateMessage(res.CreateError("❌ Character not found. Please double-check the spelling and try again."))
+	}
+
+	msg := &discord.MessageCreate{
+		Embeds: []discord.Embed{CreateCharacterEmbed(profile)},
+	}
+
+	return e.CreateMessage(*msg)
 }
 
 func (c *commands) OnWowAutocomplete(e *handler.AutocompleteEvent) error {
@@ -135,9 +142,46 @@ func (c *commands) OnWowAutocomplete(e *handler.AutocompleteEvent) error {
 		if e.Data.Focused().Name == "realm" {
 			return c.OnRealmAutocomplete(e)
 		}
+	case "char-stats":
+		if e.Data.Focused().Name == "character" {
+			return c.OnRegisterdCharacterAutocomplete(e)
+		}
 	}
 
 	return nil
+}
+
+func (c *commands) OnRegisterdCharacterAutocomplete(e *handler.AutocompleteEvent) error {
+	region := strings.ToLower(e.Data.String("region"))
+	query := e.Data.String("character")
+	slog.Debug("Chosen region: '%s', Autocomplete query for character: '%s'\n", region, query)
+
+	// Fetch registered characters from the database
+	characters, err := c.Database.WoWGetCharacters(e.GuildID().String(), e.User().ID.String())
+	if err != nil {
+		slog.Error("Error fetching registered characters:", slog.String("error", err.Error()))
+		return nil
+	}
+
+	choices := []discord.AutocompleteChoice{}
+	charactersAdded := 0
+
+	// Return the filtered character choices based on the region and query
+	for _, character := range characters {
+		if strings.Contains(strings.ToLower(character.CharacterName), strings.ToLower(query)) {
+			choices = append(choices, discord.AutocompleteChoiceString{
+				Name:  character.CharacterName,
+				Value: character.CharacterName,
+			})
+
+			charactersAdded++
+			if charactersAdded >= 25 {
+				break
+			}
+		}
+	}
+
+	return e.AutocompleteResult(choices)
 }
 
 func (c *commands) OnRealmAutocomplete(e *handler.AutocompleteEvent) error {
@@ -173,19 +217,19 @@ func (c *commands) OnRealmAutocomplete(e *handler.AutocompleteEvent) error {
 	return e.AutocompleteResult(choices)
 }
 
-func CreateCharacterEmbed(character *raiderio.WoWCharacter) discord.Embed {
+func CreateCharacterEmbed(character *raiderio.CharacterProfile) discord.Embed {
 	embed := discord.Embed{
 		Type:  "rich", // explicitly required
 		Title: character.Name,
 		Color: 0x00AEEF,
-		Description: fmt.Sprintf("%s %s (%s)\nSpec: **%s** (%s)\nFaction: %s\nAchievement Points: %d",
-			character.Race,
-			character.Class,
-			character.Gender,
-			character.ActiveSpecName,
-			character.ActiveSpecRole,
-			character.Faction,
-			character.AchievementPoints,
+		Description: fmt.Sprintf(
+			"**Region:** %s\n**Realm:** %s\n**Faction:** %s\n**Class:** %s\n**Mythic+ Score:** %.2f\n**Raider.IO Profile:** [Link](%s)",
+			strings.ToUpper(character.Region),
+			strings.ToUpper(character.Realm),
+			strings.ToUpper(character.Faction),
+			strings.ToUpper(character.Class),
+			character.MythicPlusScoresBySeason[0].Scores.All,
+			character.ProfileURL,
 		),
 	}
 

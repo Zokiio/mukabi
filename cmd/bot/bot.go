@@ -13,6 +13,7 @@ import (
 	"github.com/zokiio/mukabi/internal/log"
 	"github.com/zokiio/mukabi/service/bot"
 	"github.com/zokiio/mukabi/service/bot/commands"
+	"github.com/zokiio/mukabi/service/bot/events"
 )
 
 var (
@@ -42,7 +43,10 @@ func main() {
 	}
 	defer b.Close()
 
-	b.Discord.AddEventListeners(commands.New(b))
+	b.Discord.AddEventListeners(
+		commands.New(b),
+		events.New(b),
+	)
 
 	if err = b.Start(commands.Commands); err != nil {
 		slog.Error("Failed to start bot", slog.Any("error", err))

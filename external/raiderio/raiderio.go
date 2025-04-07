@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/topi314/tint"
 )
@@ -151,7 +150,7 @@ const (
 	FieldGuild                                    = "guild"
 	FieldCovenant                                 = "covenant"
 	FieldRaidProgression                          = "raid_progression"
-	FieldMythicPlusScoresBySeason                 = "mythic_plus_scores_by_season"
+	FieldMythicPlusScoresBySeason                 = "mythic_plus_scores_by_season:current"
 	FieldMythicPlusRanks                          = "mythic_plus_ranks"
 	FieldMythicPlusRecentRuns                     = "mythic_plus_recent_runs"
 	FieldMythicPlusBestRuns                       = "mythic_plus_best_runs"
@@ -176,53 +175,7 @@ func WithFields(fields ...string) FetchCharacterOption {
 	}
 }
 
-type WoWCharacter struct {
-	Name                 string               `json:"name"`
-	Race                 string               `json:"race"`
-	Class                string               `json:"class"`
-	ActiveSpecName       string               `json:"active_spec_name"`
-	ActiveSpecRole       string               `json:"active_spec_role"`
-	Gender               string               `json:"gender"`
-	Faction              string               `json:"faction"`
-	AchievementPoints    int                  `json:"achievement_points"`
-	ThumbnailURL         string               `json:"thumbnail_url"`
-	Region               string               `json:"region"`
-	Realm                string               `json:"realm"`
-	LastCrawledAt        time.Time            `json:"last_crawled_at"`
-	ProfileURL           string               `json:"profile_url"`
-	ProfileBanner        string               `json:"profile_banner"`
-	MythicPlusRecentRuns MythicPlusRecentRuns `json:"mythic_plus_recent_runs"`
-}
-
-type MythicPlusRecentRuns struct {
-	Dungeon             string    `json:"dungeon"`
-	ShortName           string    `json:"short_name"`
-	MythicLevel         int       `json:"mythic_level"`
-	CompletedAt         time.Time `json:"completed_at"`
-	ClearTimeMs         int       `json:"clear_time_ms"`
-	KeystoneRunID       int       `json:"keystone_run_id"`
-	ParTimeMs           int       `json:"par_time_ms"`
-	NumKeystoneUpgrades int       `json:"num_keystone_upgrades"`
-	MapChallengeModeID  int       `json:"map_challenge_mode_id"`
-	ZoneID              int       `json:"zone_id"`
-	ZoneExpansionID     int       `json:"zone_expansion_id"`
-	IconURL             string    `json:"icon_url"`
-	BackgroundImageURL  string    `json:"background_image_url"`
-	Score               int       `json:"score"`
-	Affixes             Affixes   `json:"affixes"`
-	URL                 string    `json:"url"`
-}
-
-type Affixes struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Icon        string `json:"icon"`
-	IconURL     string `json:"icon_url"`
-	WowheadURL  string `json:"wowhead_url"`
-}
-
-func (r *RaiderIO) FetchCharacterProfile(region, realm, character string, opts ...FetchCharacterOption) (*WoWCharacter, error) {
+func (r *RaiderIO) FetchCharacterProfile(region, realm, character string, opts ...FetchCharacterOption) (*CharacterProfile, error) {
 	endpoint := fmt.Sprintf("%s/%s/characters/profile", r.API, r.Version)
 	params := fmt.Sprintf("?access_key=%s&region=%s&realm=%s&name=%s", r.Key, region, realm, character)
 
@@ -255,7 +208,7 @@ func (r *RaiderIO) FetchCharacterProfile(region, realm, character string, opts .
 		return nil, fmt.Errorf("error reading response body: %w", err)
 	}
 
-	var characterProfile WoWCharacter
+	var characterProfile CharacterProfile
 	if err := json.Unmarshal(body, &characterProfile); err != nil {
 		slog.Error("Failed to unmarshal character profile", tint.Err(err))
 		return nil, fmt.Errorf("error unmarshaling character profile: %w", err)
