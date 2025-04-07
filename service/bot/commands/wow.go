@@ -138,7 +138,6 @@ func (c *commands) OnWowAutocomplete(e *handler.AutocompleteEvent) error {
 	// Handle the specific subcommands and their autocomplete options
 	switch *e.Data.SubCommandName {
 	case "reg-character":
-		// We want to handle the 'region' argument under these subcommands
 		if e.Data.Focused().Name == "realm" {
 			return c.OnRealmAutocomplete(e)
 		}
@@ -156,7 +155,6 @@ func (c *commands) OnRegisterdCharacterAutocomplete(e *handler.AutocompleteEvent
 	query := e.Data.String("character")
 	slog.Debug("Chosen region: '%s', Autocomplete query for character: '%s'\n", region, query)
 
-	// Fetch registered characters from the database
 	characters, err := c.Database.WoWGetCharacters(e.GuildID().String(), e.User().ID.String())
 	if err != nil {
 		slog.Error("Error fetching registered characters:", slog.String("error", err.Error()))
@@ -189,7 +187,6 @@ func (c *commands) OnRealmAutocomplete(e *handler.AutocompleteEvent) error {
 	query := e.Data.String("realm")
 	slog.Debug("Chosen region: '%s', Autocomplete query for realm: '%s'\n", region, query)
 
-	// Fetch connected realms using RaiderIO
 	realms, err := c.External.RaiderIO().FetchConnectedRealms(region, query)
 	if err != nil {
 		slog.Error("Error fetching connected realms:", slog.String("error", err.Error()))
@@ -212,7 +209,6 @@ func (c *commands) OnRealmAutocomplete(e *handler.AutocompleteEvent) error {
 		}
 	}
 
-	// Print filtered choices for debugging
 	slog.Debug(fmt.Sprintf("Filtered realms for region '%s': %v", region, choices))
 	return e.AutocompleteResult(choices)
 }

@@ -131,7 +131,6 @@ func (r *RaiderIO) FetchConnectedRealms(region string, query string) ([]Filtered
 
 	r.CacheMap.Store(cacheKey, dataToCache)
 
-	// Apply query filtering before returning the results
 	filteredRealms = filterRealms(filteredRealms, query)
 	return filteredRealms, nil
 }

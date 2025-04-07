@@ -2,7 +2,6 @@ package raiderio
 
 import "time"
 
-// CharacterProfile represents the main profile information.
 type CharacterProfile struct {
 	Name                     string                     `json:"name"`
 	Race                     string                     `json:"race"`
