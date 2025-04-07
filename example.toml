@@ -1,0 +1,24 @@
+[log]
+level = 'info'
+format = 'text'
+add_source = true
+no_color = false
+
+[bot]
+dev_mode = false
+sync_commands = true
+guild_ids = []
+token = "discord_token_here"
+
+[external_api]
+raiderio_key = "raiderio_key_here"
+
+[database]
+driver = 'sqlite'        # or 'postgres'
+database = 'database.db' # SQLite database file name or PostgreSQL database name
+# Uncomment the following lines and fill in the details if using PostgreSQL
+# host = 'localhost'    # Uncomment for PostgreSQL
+# port = 5432           # Uncomment for PostgreSQL
+# username = 'username' # Uncomment for PostgreSQL
+# password = '...'      # Uncomment for PostgreSQL
+# ssl_mode = 'disable'  # Uncomment for PostgreSQL
