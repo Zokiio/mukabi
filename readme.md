@@ -73,27 +73,11 @@ go mod tidy
 go run ./cmd/bot
 ```
 
-### Commands
-
-`/ping`
-Responds with "Pong!" to check if the bot is online.
-
-`/wow reg-character`
-Registers a World of Warcraft character. Requires the following options:
-
-- region: The region of the character (e.g., EU, US).
-- realm: The realm of the character.
-- character: The name of the character.
-
-`/wow char-stats` Fetches stats for a registered WoW character.
-
-Requires:
-
-- character: The name of the character.
-
 ### Logging
 
 The bot uses a customizable logging system. Configure the log level, format, and other options in the `config.toml` file.
+
+TODO: Mixed a bit too much between `slog` and `fmt.prinln`
 
 ### External APIs
 
