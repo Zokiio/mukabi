@@ -1,34 +1,53 @@
-# Mukabi Bot
+# Mukabi Discord Bot
 
-Mukabi is a Discord bot designed to provide various features, including World of Warcraft character management and integration with external APIs like Raider.IO.
+A feature-rich Discord bot built in Go, providing World of Warcraft character management and integration with external services like Raider.IO.
 
 ## Features
 
-- **World of Warcraft Integration**:
-  - Register WoW characters.
-  - Fetch character stats using Raider.IO.
-  - Autocomplete for realms and regions.
+### World of Warcraft Integration
+- Character registration and management
+- Character statistics via Raider.IO integration
+- Realm lookup with autocomplete
+- Multi-region support (EU/US)
 
-- **Discord Commands**:
-  - `/ping`: Check if the bot is online.
-  - `/wow reg-character`: Register a WoW character.
-  - `/wow char-stats`: Fetch stats for a registered WoW character.
+### Discord Features
+- Modern slash command support
+- Rich embeds for data display
+- Ephemeral messages for error handling
+- Server-specific character management
 
-- **Database Support**:
-  - SQLite and PostgreSQL support.
-  - Schema for managing servers and WoW characters.
+### Technical Features
+- Structured logging with colored output
+- Multiple database support (SQLite/PostgreSQL)
+- Configurable via TOML
+- Graceful shutdown handling
 
-## Setup
-
-### Prerequisites
+## Requirements
 
 - Go 1.23.6 or later
-- SQLite or PostgreSQL
-- A Discord bot token
+- SQLite or PostgreSQL database
+- Discord bot token
+- Raider.IO API key (for WoW features)
 
-### Configuration
+## Project Structure
 
-Create a `config.toml` file in the root directory. Use the following template:
+```
+mukabi/
+├── cmd/                # Command-line applications
+│   └── bot/           # Main bot executable
+├── external/          # External service integrations
+│   └── raiderio/     # Raider.IO API client
+├── internal/          # Private application packages
+│   ├── config/       # Configuration loading
+│   └── log/          # Logging setup
+├── service/          # Core service implementations
+│   └── bot/         # Bot service implementation
+└── sql/             # Database schemas
+```
+
+## Configuration
+
+Copy `example.toml` to `config.toml` and configure:
 
 ```toml
 [log]
@@ -38,51 +57,76 @@ add_source = true
 no_color = false
 
 [bot]
-dev_mode = false
 sync_commands = true
-guild_ids = [120041001107587072]
-token = "your_discord_bot_token"
+token = "your_discord_token"
 
-[external_api]
-raiderio_key = "your_raiderio_api_key"
+[external]
+raiderio_key = "your_raiderio_key"
 
 [database]
-driver = 'sqlite'        # or 'postgres'
-database = 'mukabi.db'   # SQLite database file name or PostgreSQL database name
-# Uncomment the following lines for PostgreSQL
-# host = 'localhost'
-# port = 5432
-# username = 'username'
-# password = 'password'
-# ssl_mode = 'disable'
+driver = 'sqlite'
+database = 'mukabi.db'
 ```
 
-### Running the Bot
+See `example.toml` for all available options and documentation.
 
-Install dependencies:
+## Installation
 
-1. Install dependencies:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/mukabi.git
+   cd mukabi
+   ```
 
-```shell
-go mod tidy
-```
+2. Install dependencies:
+   ```bash
+   go mod download
+   ```
 
+3. Build the bot:
+   ```bash
+   go build -o mukabi ./cmd/bot
+   ```
+
+## Usage
+
+1. Create and configure `config.toml`
 2. Run the bot:
+   ```bash
+   ./mukabi
+   ```
 
-```shell
-go run ./cmd/bot
+### Available Commands
+
+- `/ping` - Check bot responsiveness
+- `/wow reg-character` - Register a WoW character
+- `/wow char-stats` - View character statistics
+
+## Development
+
+### Code Style
+
+The project follows standard Go code style guidelines:
+- Use `go fmt` and `goimports` for formatting
+- Follow [Effective Go](https://go.dev/doc/effective_go) conventions
+- Comprehensive documentation for exported symbols
+- Structured error handling with context
+
+### Testing
+
+Run tests with:
+```bash
+go test ./...
 ```
 
-### Logging
+## Contributing
 
-The bot uses a customizable logging system. Configure the log level, format, and other options in the `config.toml` file.
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
-TODO: Mixed a bit too much between `slog` and `fmt.prinln`
+## License
 
-### External APIs
-
-Raider.IO: Used for fetching WoW character stats and realm information.
-
-### Contributing
-
-Contributions are welcome! Feel free to open issues or submit pull requests.
+This project is licensed under the MIT License - see the LICENSE file for details.

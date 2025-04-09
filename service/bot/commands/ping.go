@@ -1,3 +1,4 @@
+// Package commands implements Discord slash command handlers for the bot
 package commands
 
 import (
@@ -6,11 +7,13 @@ import (
 	"github.com/zokiio/mukabi/service/bot/res"
 )
 
+// pingCommand defines a simple ping-pong command for testing bot connectivity
 var pingCommand = discord.SlashCommandCreate{
 	Name:        "ping",
-	Description: "Ping the bot",
+	Description: "Check bot responsiveness",
 }
 
-func (c *commands) OnPing(_ discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
+// handlePing responds to the ping command with a simple pong message
+func (c *Commander) handlePing(_ discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
 	return e.CreateMessage(res.Create("Pong!"))
 }

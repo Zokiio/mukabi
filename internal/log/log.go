@@ -1,3 +1,4 @@
+// Package log provides logging configuration and setup for the application
 package log
 
 import (
@@ -8,20 +9,13 @@ import (
 	"github.com/topi314/tint"
 )
 
-type Config struct {
-	Level     slog.Level `toml:"level"`
-	Format    string     `toml:"format"`
-	AddSource bool       `toml:"add_source"`
-	NoColor   bool       `toml:"no_color"`
-}
-
+// ANSI color codes for terminal output
 const (
 	ansiFaint         = "\033[2m"
 	ansiWhiteBold     = "\033[37;1m"
 	ansiYellowBold    = "\033[33;1m"
 	ansiCyanBold      = "\033[36;1m"
 	ansiCyanBoldFaint = "\033[36;1;2m"
-	ansiRedFaint      = "\033[31;2m"
 	ansiRedBold       = "\033[31;1m"
 
 	ansiRed     = "\033[31m"
@@ -30,17 +24,27 @@ const (
 	ansiMagenta = "\033[35m"
 )
 
+// Config defines logging configuration options
+type Config struct {
+	Level     slog.Level `toml:"level"`      // Minimum log level to output
+	Format    string     `toml:"format"`     // Output format (json or text)
+	AddSource bool       `toml:"add_source"` // Include source file and line in log output
+	NoColor   bool       `toml:"no_color"`   // Disable colored output
+}
+
+// Setup configures the global logger based on the provided configuration
 func Setup(cfg Config) {
-	var h slog.Handler
+	var handler slog.Handler
+
 	switch cfg.Format {
 	case "json":
-		h = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			AddSource: cfg.AddSource,
 			Level:     cfg.Level,
 		})
 
 	case "text":
-		h = tint.NewHandler(colorable.NewColorable(os.Stdout), &tint.Options{
+		handler = tint.NewHandler(colorable.NewColorable(os.Stdout), &tint.Options{
 			AddSource: cfg.AddSource,
 			Level:     cfg.Level,
 			NoColor:   cfg.NoColor,
@@ -59,14 +63,20 @@ func Setup(cfg Config) {
 				tint.KindKey:             ansiFaint,
 				tint.KindSeparator:       ansiFaint,
 				tint.KindValue:           ansiWhiteBold,
-				tint.KindErrorKey:        ansiRedFaint,
-				tint.KindErrorSeparator:  ansiFaint,
-				tint.KindErrorValue:      ansiRedBold,
+				tint.KindErrorKey:        ansiRedBold,
 			},
 		})
+
 	default:
-		slog.Error("Unknown log format", slog.String("format", cfg.Format))
-		os.Exit(-1)
+		slog.Error("Unsupported log format, defaulting to text",
+			slog.String("format", cfg.Format))
+
+		// Set up default text handler without colors
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource: cfg.AddSource,
+			Level:     cfg.Level,
+		})
 	}
-	slog.SetDefault(slog.New(h))
+
+	slog.SetDefault(slog.New(handler))
 }

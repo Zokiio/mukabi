@@ -1,8 +1,10 @@
+// Package bot provides the core functionality for the Discord bot
 package bot
 
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"log/slog"
 
 	"github.com/disgoorg/disgo"
@@ -14,6 +16,7 @@ import (
 	"github.com/disgoorg/disgo/rest"
 	"github.com/disgoorg/disgo/sharding"
 	"github.com/topi314/tint"
+
 	"github.com/zokiio/mukabi/external"
 	"github.com/zokiio/mukabi/service/bot/db"
 )
@@ -21,16 +24,18 @@ import (
 //go:embed sql/schema.sql
 var schema string
 
+// Bot represents the main bot instance with all its dependencies
 type Bot struct {
 	Config   Config
 	Version  string
 	Commit   string
 	Discord  bot.Client
-	Database *db.DB
+	Database *db.Database
 	External *external.Services
 }
 
-func New(cfg Config, version string, commit string) (*Bot, error) {
+// New creates a new bot instance with the provided configuration
+func New(cfg Config, version, commit string) (*Bot, error) {
 	b := &Bot{
 		Config:   cfg,
 		Version:  version,
@@ -38,15 +43,20 @@ func New(cfg Config, version string, commit string) (*Bot, error) {
 		External: external.NewServices(cfg.External.RaiderIOKey),
 	}
 
-	gatewayConfigOpts := []gateway.ConfigOpt{
+	// Configure gateway options
+	gatewayOpts := []gateway.ConfigOpt{
 		gateway.WithIntents(gateway.IntentGuilds, gateway.IntentGuildVoiceStates),
 	}
-	shardManagerConfigOpts := []sharding.ConfigOpt{
-		sharding.WithGatewayConfigOpts(gatewayConfigOpts...),
+
+	// Configure shard manager
+	shardOpts := []sharding.ConfigOpt{
+		sharding.WithGatewayConfigOpts(gatewayOpts...),
 	}
+
+	// Add custom gateway URL if provided
 	if cfg.Bot.GatewayURL != "" {
-		shardManagerConfigOpts = []sharding.ConfigOpt{
-			sharding.WithGatewayConfigOpts(append(gatewayConfigOpts,
+		shardOpts = []sharding.ConfigOpt{
+			sharding.WithGatewayConfigOpts(append(gatewayOpts,
 				gateway.WithURL(cfg.Bot.GatewayURL),
 				gateway.WithCompress(false),
 			)...),
@@ -54,61 +64,55 @@ func New(cfg Config, version string, commit string) (*Bot, error) {
 		}
 	}
 
-	var restClientConfigOpts []rest.ConfigOpt
+	// Configure REST client
+	restOpts := []rest.ConfigOpt{}
 	if cfg.Bot.RestURL != "" {
-		restClientConfigOpts = []rest.ConfigOpt{
+		restOpts = append(restOpts,
 			rest.WithURL(cfg.Bot.RestURL),
 			rest.WithRateLimiter(rest.NewNoopRateLimiter()),
-		}
+		)
 	}
 
-	d, err := disgo.New(cfg.Bot.Token,
-		bot.WithShardManagerConfigOpts(shardManagerConfigOpts...),
-		bot.WithRestClientConfigOpts(restClientConfigOpts...),
+	// Create Discord client
+	client, err := disgo.New(cfg.Bot.Token,
+		bot.WithShardManagerConfigOpts(shardOpts...),
+		bot.WithRestClientConfigOpts(restOpts...),
 		bot.WithCacheConfigOpts(
 			cache.WithCaches(cache.FlagGuilds, cache.FlagVoiceStates),
 		),
 	)
 	if err != nil {
-		slog.Error("Failed to create discord client", tint.Err(err))
-		return nil, err
+		return nil, fmt.Errorf("failed to create discord client: %w", err)
 	}
 
+	// Initialize database
 	database, err := db.New(cfg.Database.Driver, cfg.Database, schema)
 	if err != nil {
-		slog.Error("Failed to create database", tint.Err(err))
-		return nil, err
+		return nil, fmt.Errorf("failed to create database: %w", err)
 	}
 
-	b.Discord = d
+	b.Discord = client
 	b.Database = database
 	return b, nil
 }
 
+// Start initializes the bot and starts listening for Discord events
 func (b *Bot) Start(commands []discord.ApplicationCommandCreate) error {
 	if b.Config.Bot.SyncCommands {
-		slog.Info("Syncing commands...")
+		slog.Info("Syncing slash commands...")
 
-		// // Clear existing commands
-		// var emptyCommands []discord.ApplicationCommandCreate
-		// var guildIDs []snowflake.ID
-		// if err := handler.SyncCommands(b.Discord, emptyCommands, guildIDs); err != nil {
-		// 	slog.Error("Failed to sync commands", tint.Err(err))
-		// 	return err
-		// }
-
-		// Sync new commands
-		slog.Debug("Commands to sync", "commands", commands)
 		if err := handler.SyncCommands(b.Discord, commands, b.Config.Bot.GuildIDs); err != nil {
-			slog.Error("Failed to sync commands", tint.Err(err))
-			return err
+			return fmt.Errorf("failed to sync commands: %w", err)
 		}
 	}
 
 	return b.Discord.OpenShardManager(context.Background())
 }
 
+// Close gracefully shuts down the bot
 func (b *Bot) Close() {
 	b.Discord.Close(context.Background())
-	_ = b.Database.Close()
+	if err := b.Database.Close(); err != nil {
+		slog.Error("Error closing database connection", tint.Err(err))
+	}
 }

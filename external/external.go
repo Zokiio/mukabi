@@ -1,21 +1,26 @@
+// Package external provides interfaces for external service integrations
 package external
 
 import "github.com/zokiio/mukabi/external/raiderio"
 
+// ExternalAPI defines the interface for accessing external services
 type ExternalAPI interface {
-	RaiderIO() *raiderio.RaiderIO
+	RaiderIO() *raiderio.Client
 }
 
+// Services implements ExternalAPI interface and holds external service clients
 type Services struct {
-	raiderIO *raiderio.RaiderIO
+	raiderIO *raiderio.Client
 }
 
-func NewServices(RaiderIOKey string) *Services {
+// NewServices creates a new Services instance with configured external clients
+func NewServices(raiderIOKey string) *Services {
 	return &Services{
-		raiderIO: raiderio.New(RaiderIOKey),
+		raiderIO: raiderio.New(raiderIOKey),
 	}
 }
 
-func (s *Services) RaiderIO() *raiderio.RaiderIO {
+// RaiderIO returns the RaiderIO client instance
+func (s *Services) RaiderIO() *raiderio.Client {
 	return s.raiderIO
 }

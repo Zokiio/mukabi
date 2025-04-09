@@ -1,3 +1,4 @@
+// Package raiderio provides integration with the Raider.IO API for World of Warcraft character and realm data.
 package raiderio
 
 import (
@@ -13,39 +14,41 @@ import (
 	"github.com/topi314/tint"
 )
 
-type RaiderIO struct {
-	API      string `json:"api"`
-	Key      string `json:"key"`
-	Version  string `json:"version"`
-	Cache    Cache  `json:"cache"`
-	Timeout  int    `json:"timeout"`
-	CacheMap *sync.Map
+const (
+	defaultAPIURL     = "https://raider.io/api"
+	defaultAPIVersion = "v1"
+	defaultCacheTTL   = 3600 // 1 hour TTL
+)
+
+// Client represents a RaiderIO API client with caching capabilities.
+type Client struct {
+	apiURL     string
+	apiKey     string
+	apiVersion string
+	cache      cacheConfig
+	timeout    int
+	cacheStore *sync.Map
 }
 
-type Cache struct {
-	Enabled bool   `json:"enabled"`
-	TTL     int    `json:"ttl"`
-	Backend string `json:"backend"`
+type cacheConfig struct {
+	enabled bool
+	ttl     int
+	backend string
 }
 
-type FilteredRealm struct {
-	Region string `json:"region"`
-	Realm  string `json:"realm"`
-	Slug   string `json:"slug"`
-}
-
-func New(ApiKey string) *RaiderIO {
-	return &RaiderIO{
-		API:     "https://raider.io/api",
-		Key:     ApiKey,
-		Version: "v1",
-		Cache: Cache{
-			Enabled: true,
-			TTL:     3600, // 1 hour TTL
-			Backend: "in-memory",
+// New creates a new RaiderIO client with the given API key.
+func New(apiKey string) *Client {
+	return &Client{
+		apiURL:     defaultAPIURL,
+		apiKey:     apiKey,
+		apiVersion: defaultAPIVersion,
+		cache: cacheConfig{
+			enabled: true,
+			ttl:     defaultCacheTTL,
+			backend: "in-memory",
 		},
-		Timeout:  10,
-		CacheMap: &sync.Map{},
+		timeout:    10,
+		cacheStore: &sync.Map{},
 	}
 }
 
@@ -71,12 +74,12 @@ func filterRealms(realms []FilteredRealm, query string) []FilteredRealm {
 
 // FetchConnectedRealms fetches connected realms from the RaiderIO API and caches the result
 // It filters the realms based on the provided query string and returns the filtered list
-func (r *RaiderIO) FetchConnectedRealms(region string, query string) ([]FilteredRealm, error) {
+func (c *Client) FetchConnectedRealms(region string, query string) ([]FilteredRealm, error) {
 	// Cache key based on the region
 	cacheKey := fmt.Sprintf("connected_realms_%s", region)
 
 	// Check cache first
-	cachedData, found := r.CacheMap.Load(cacheKey)
+	cachedData, found := c.cacheStore.Load(cacheKey)
 	if found {
 		// If cache hit, unmarshal and return the filtered realms
 		var realms []FilteredRealm
@@ -90,7 +93,7 @@ func (r *RaiderIO) FetchConnectedRealms(region string, query string) ([]Filtered
 	}
 
 	// If no cache hit, fetch data from the API
-	url := fmt.Sprintf("%s/connected-realms?region=%s&realm=all", r.API, region)
+	url := fmt.Sprintf("%s/connected-realms?region=%s&realm=all", c.apiURL, region)
 	resp, err := http.Get(url)
 	if err != nil {
 		slog.Error("Failed to make API request", tint.Err(err))
@@ -129,10 +132,16 @@ func (r *RaiderIO) FetchConnectedRealms(region string, query string) ([]Filtered
 		return nil, fmt.Errorf("error marshaling data for cache: %w", err)
 	}
 
-	r.CacheMap.Store(cacheKey, dataToCache)
+	c.cacheStore.Store(cacheKey, dataToCache)
 
 	filteredRealms = filterRealms(filteredRealms, query)
 	return filteredRealms, nil
+}
+
+type FilteredRealm struct {
+	Region string `json:"region"`
+	Realm  string `json:"realm"`
+	Slug   string `json:"slug"`
 }
 
 type CharacterProfileReq struct {
@@ -174,9 +183,9 @@ func WithFields(fields ...string) FetchCharacterOption {
 	}
 }
 
-func (r *RaiderIO) FetchCharacterProfile(region, realm, character string, opts ...FetchCharacterOption) (*CharacterProfile, error) {
-	endpoint := fmt.Sprintf("%s/%s/characters/profile", r.API, r.Version)
-	params := fmt.Sprintf("?access_key=%s&region=%s&realm=%s&name=%s", r.Key, region, realm, character)
+func (c *Client) FetchCharacterProfile(region, realm, character string, opts ...FetchCharacterOption) (*CharacterProfile, error) {
+	endpoint := fmt.Sprintf("%s/%s/characters/profile", c.apiURL, c.apiVersion)
+	params := fmt.Sprintf("?access_key=%s&region=%s&realm=%s&name=%s", c.apiKey, region, realm, character)
 
 	cfg := &fetchCharacterConfig{}
 	for _, opt := range opts {

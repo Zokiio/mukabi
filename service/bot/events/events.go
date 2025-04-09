@@ -1,3 +1,4 @@
+// Package events provides Discord event handlers for the bot
 package events
 
 import (
@@ -9,36 +10,49 @@ import (
 	mubot "github.com/zokiio/mukabi/service/bot"
 )
 
-type Listener struct {
+// EventHandler manages Discord event handling
+type EventHandler struct {
 	*mubot.Bot
 }
 
-// OnEvent implements bot.EventListener.
-func (l *Listener) OnEvent(event bot.Event) {
+// OnEvent implements bot.EventListener interface
+func (h *EventHandler) OnEvent(event bot.Event) {
 	switch e := event.(type) {
 	case *events.GuildJoin:
-		l.OnGuildJoin(e)
+		h.handleGuildJoin(e)
 	case *events.GuildLeave:
-		l.OnGuildLeave(e)
+		h.handleGuildLeave(e)
 	case *events.Ready:
-		l.OnReady(e)
+		h.handleReady(e)
 	default:
-		slog.Debug("Unhandled event")
+		slog.Debug("Received unhandled event type")
 	}
 }
 
-func (l *Listener) OnGuildJoin(event *events.GuildJoin) {
-	slog.Info("✅ Joined guild", slog.String("guild", event.Guild.Name))
+// handleGuildJoin processes guild join events
+func (h *EventHandler) handleGuildJoin(event *events.GuildJoin) {
+	slog.Info("Bot joined guild",
+		slog.String("guild_name", event.Guild.Name),
+		slog.String("guild_id", event.Guild.ID.String()),
+	)
 }
 
-func (l *Listener) OnGuildLeave(event *events.GuildLeave) {
-	slog.Info("❌ Left guild", slog.String("guild_id", event.GuildID.String()))
+// handleGuildLeave processes guild leave events
+func (h *EventHandler) handleGuildLeave(event *events.GuildLeave) {
+	slog.Info("Bot left guild",
+		slog.String("guild_id", event.GuildID.String()),
+	)
 }
 
-func (l *Listener) OnReady(event *events.Ready) {
-	slog.Info("🤖 Bot is ready!")
+// handleReady processes the ready event when the bot connects to Discord
+func (h *EventHandler) handleReady(event *events.Ready) {
+	slog.Info("Bot is ready",
+		slog.String("username", event.User.Username),
+		slog.String("user_id", event.User.ID.String()),
+	)
 }
 
+// New creates a new event handler
 func New(bot *mubot.Bot) bot.EventListener {
-	return &Listener{bot}
+	return &EventHandler{bot}
 }

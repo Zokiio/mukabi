@@ -1,3 +1,4 @@
+// Package db provides database access and operations for the bot
 package db
 
 import (
@@ -12,6 +13,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+const (
+	defaultTimeout = 10 * time.Second
+)
+
+// Config holds database configuration parameters
 type Config struct {
 	Host     string `toml:"host"`
 	Port     int    `toml:"port"`
@@ -22,8 +28,9 @@ type Config struct {
 	Driver   string `toml:"driver"`
 }
 
+// String returns a string representation of the config, masking sensitive data
 func (c Config) String() string {
-	return fmt.Sprintf("\n   Host: %s\n   Port: %dn   Username: %s\n   Password: %s\n   Database: %s\n   SSLMode: %s",
+	return fmt.Sprintf("\n   Host: %s\n   Port: %d\n   Username: %s\n   Password: %s\n   Database: %s\n   SSLMode: %s",
 		c.Host,
 		c.Port,
 		c.Username,
@@ -33,6 +40,7 @@ func (c Config) String() string {
 	)
 }
 
+// PostgresDataSourceName returns the PostgreSQL connection string
 func (c Config) PostgresDataSourceName() string {
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		c.Host,
@@ -44,62 +52,74 @@ func (c Config) PostgresDataSourceName() string {
 	)
 }
 
-func New(driver string, cfg Config, schema string) (*DB, error) {
+// New creates a new database connection based on the provided configuration
+func New(driver string, cfg Config, schema string) (*Database, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
 	switch strings.ToLower(driver) {
 	case "postgres":
-		pgCfg, err := pgx.ParseConfig(cfg.PostgresDataSourceName())
-		if err != nil {
-			return nil, err
-		}
-
-		db, err := sqlx.Open("pgx", stdlib.RegisterConnConfig(pgCfg))
-		if err != nil {
-			return nil, fmt.Errorf("failed to open database: %w", err)
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err = db.PingContext(ctx); err != nil {
-			return nil, fmt.Errorf("failed to ping database: %w", err)
-		}
-
-		if _, err = db.ExecContext(ctx, schema); err != nil {
-			return nil, fmt.Errorf("failed to execute schema: %w", err)
-		}
-
-		return &DB{
-			dbx: db,
-		}, nil
+		return newPostgres(ctx, cfg, schema)
 	case "sqlite":
-		fmt.Println("Using SQLite for database connection.")
-		if cfg.Database == "" {
-			return nil, fmt.Errorf("SQLite database path is required in the config")
-		}
-		db, err := sqlx.Open("sqlite3", cfg.Database)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open SQLite database: %w", err)
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err = db.PingContext(ctx); err != nil {
-			return nil, fmt.Errorf("failed to ping SQLite database: %w", err)
-		}
-		if schema != "" {
-			_, err = db.ExecContext(ctx, schema)
-			if err != nil {
-				return nil, fmt.Errorf("failed to execute SQLite schema: %w", err)
-			}
-		}
-		return &DB{dbx: db}, nil
+		return newSQLite(ctx, cfg, schema)
 	default:
 		return nil, fmt.Errorf("unsupported driver: %s", driver)
 	}
 }
 
-type DB struct {
-	dbx *sqlx.DB
+// Database represents a database connection with query capabilities
+type Database struct {
+	db *sqlx.DB
 }
 
-func (d *DB) Close() error {
-	return d.dbx.Close()
+func newPostgres(ctx context.Context, cfg Config, schema string) (*Database, error) {
+	pgCfg, err := pgx.ParseConfig(cfg.PostgresDataSourceName())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse postgres config: %w", err)
+	}
+
+	db, err := sqlx.Open("pgx", stdlib.RegisterConnConfig(pgCfg))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	if err = db.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	if schema != "" {
+		if _, err = db.ExecContext(ctx, schema); err != nil {
+			return nil, fmt.Errorf("failed to execute schema: %w", err)
+		}
+	}
+
+	return &Database{db: db}, nil
+}
+
+func newSQLite(ctx context.Context, cfg Config, schema string) (*Database, error) {
+	if cfg.Database == "" {
+		return nil, fmt.Errorf("SQLite database path is required")
+	}
+
+	db, err := sqlx.Open("sqlite3", cfg.Database)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open SQLite database: %w", err)
+	}
+
+	if err = db.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("failed to ping SQLite database: %w", err)
+	}
+
+	if schema != "" {
+		if _, err = db.ExecContext(ctx, schema); err != nil {
+			return nil, fmt.Errorf("failed to execute schema: %w", err)
+		}
+	}
+
+	return &Database{db: db}, nil
+}
+
+// Close closes the database connection
+func (d *Database) Close() error {
+	return d.db.Close()
 }

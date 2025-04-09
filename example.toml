@@ -1,24 +1,34 @@
+# Example configuration file for the Discord bot
+# Copy this file to config.toml and modify the values as needed
+
+# Logging configuration
 [log]
-level = 'info'
-format = 'text'
-add_source = true
-no_color = false
+level = 'info'      # Log level: debug, info, warn, error
+format = 'text'     # Output format: text or json
+add_source = true   # Include source file and line in log output
+no_color = false    # Disable colored output
 
+# Discord bot configuration
 [bot]
-dev_mode = false
-sync_commands = true
-guild_ids = []
-token = "discord_token_here"
+dev_mode = false         # Enable development mode
+sync_commands = true     # Sync slash commands on startup
+guild_ids = []          # List of guild IDs to register commands in (empty for global)
+token = ""              # Discord bot token (required)
+gateway_url = ""        # Custom gateway URL (optional)
+rest_url = ""          # Custom REST API URL (optional)
 
-[external_api]
-raiderio_key = "raiderio_key_here"
+# External API configuration
+[external]
+raiderio_key = ""      # Raider.IO API key (required for WoW features)
 
+# Database configuration
 [database]
-driver = 'sqlite'        # or 'postgres'
-database = 'database.db' # SQLite database file name or PostgreSQL database name
-# Uncomment the following lines and fill in the details if using PostgreSQL
-# host = 'localhost'    # Uncomment for PostgreSQL
-# port = 5432           # Uncomment for PostgreSQL
-# username = 'username' # Uncomment for PostgreSQL
-# password = '...'      # Uncomment for PostgreSQL
-# ssl_mode = 'disable'  # Uncomment for PostgreSQL
+driver = 'sqlite'       # Database driver: 'sqlite' or 'postgres'
+database = 'mukabi.db'  # SQLite file path or PostgreSQL database name
+
+# PostgreSQL-specific settings (uncomment if using PostgreSQL)
+# host = 'localhost'    # Database host
+# port = 5432          # Database port
+# username = ''        # Database username
+# password = ''        # Database password
+# ssl_mode = 'disable' # SSL mode: disable, require, verify-ca, verify-full
