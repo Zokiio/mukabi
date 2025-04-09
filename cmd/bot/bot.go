@@ -54,7 +54,8 @@ func main() {
 	)
 
 	// Start bot
-	if err = b.Start(commands.Commands); err != nil {
+	if err = b.Start(commands.Commands()); err != nil {
+		// If the bot fails to start, log the error and exit
 		slog.Error("Failed to start bot", tint.Err(err))
 		os.Exit(1)
 	}
