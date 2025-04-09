@@ -7,48 +7,38 @@ import (
 	"github.com/disgoorg/disgo/handler/middleware"
 
 	"github.com/zokiio/mukabi/service/bot"
-	"github.com/zokiio/mukabi/service/bot/res"
 )
-
-// Commands contains all registered slash commands for the bot
-var Commands = []discord.ApplicationCommandCreate{
-	pingCommand,
-	wowCommand,
-}
 
 // Commander handles Discord slash command interactions
 type Commander struct {
 	*bot.Bot
 }
 
+// Commands returns all registered slash commands for the bot
+func Commands() []discord.ApplicationCommandCreate {
+	cmds := make([]discord.ApplicationCommandCreate, len(registry))
+	for i, cmd := range registry {
+		cmds[i] = cmd.Definition()
+	}
+	return cmds
+}
+
 // New creates a new command router with all registered commands and middlewares
 func New(b *bot.Bot) handler.Router {
 	cmds := &Commander{b}
-
 	router := handler.New()
 	router.Use(middleware.Go)
 
-	router.SlashCommand("/ping", cmds.handlePing)
-	router.SlashCommand("/wow", cmds.handleWowCommand)
-	router.Autocomplete("/wow", cmds.handleWowAutocomplete)
+	// Register all commands from the registry
+	for _, cmd := range registry {
+		def := cmd.Definition().(discord.SlashCommandCreate)
+		if handler := cmd.Handler(cmds); handler != nil {
+			router.Command("/"+def.Name, handler)
+		}
+		if autoHandler := cmd.AutocompleteHandler(cmds); autoHandler != nil {
+			router.Autocomplete("/"+def.Name, autoHandler)
+		}
+	}
 
 	return router
-}
-
-func (c *Commander) handleWowCommand(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
-	subcommand := data.SubCommandName
-	if subcommand == nil {
-		return e.CreateMessage(res.CreateError("No subcommand provided"))
-	}
-
-	switch *subcommand {
-	case "reg-character":
-		return c.handleRegisterCharacter(data, e)
-	case "char-stats":
-		return c.wrapWowMiddleware(func(e *handler.CommandEvent) error {
-			return c.handleCharacterStats(data, e)
-		})(e)
-	default:
-		return e.CreateMessage(res.CreateError("Unknown WoW subcommand: %s", *subcommand))
-	}
 }

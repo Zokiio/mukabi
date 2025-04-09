@@ -5,7 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/disgoorg/disgo/handler"
-	"github.com/zokiio/mukabi/service/bot/res"
+	"github.com/zokiio/mukabi/service/bot/embeds"
 )
 
 // wrapWowMiddleware wraps a command handler with WoW-specific middleware checks
@@ -21,7 +21,7 @@ func (c *Commander) wrapWowMiddleware(next func(e *handler.CommandEvent) error) 
 
 		hasCharacter, err := c.Database.WoWHasRegisteredCharacter(guildID, userID)
 		if err != nil {
-			return e.CreateMessage(res.CreateError("Failed to check character registration"))
+			return e.CreateMessage(embeds.Error("Failed to check character registration"))
 		}
 
 		slog.Debug("Character registration check result",
@@ -31,7 +31,7 @@ func (c *Commander) wrapWowMiddleware(next func(e *handler.CommandEvent) error) 
 		)
 
 		if !hasCharacter {
-			return e.CreateMessage(res.CreateError("No character found. Please register a character using /wow reg-character"))
+			return e.CreateMessage(embeds.Error("No character found. Please register a character using /wow reg-character"))
 		}
 
 		return next(e)
