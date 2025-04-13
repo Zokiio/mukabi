@@ -35,6 +35,13 @@ func (h *EventHandler) handleGuildJoin(event *events.GuildJoin) {
 		slog.String("guild_name", event.Guild.Name),
 		slog.String("guild_id", event.Guild.ID.String()),
 	)
+
+	if err := h.Database.RegisterServer(event.Guild.ID.String(), event.Guild.Name); err != nil {
+		slog.Error("Failed to register server in database",
+			slog.String("guild_id", event.Guild.ID.String()),
+			slog.String("error", err.Error()),
+		)
+	}
 }
 
 // handleGuildLeave processes guild leave events

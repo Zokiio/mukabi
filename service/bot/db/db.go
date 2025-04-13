@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -56,15 +55,7 @@ func (c Config) PostgresDataSourceName() string {
 func New(driver string, cfg Config, schema string) (*Database, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-
-	switch strings.ToLower(driver) {
-	case "postgres":
-		return newPostgres(ctx, cfg, schema)
-	case "sqlite":
-		return newSQLite(ctx, cfg, schema)
-	default:
-		return nil, fmt.Errorf("unsupported driver: %s", driver)
-	}
+	return newPostgres(ctx, cfg, schema)
 }
 
 // Database represents a database connection with query capabilities
@@ -96,30 +87,25 @@ func newPostgres(ctx context.Context, cfg Config, schema string) (*Database, err
 	return &Database{db: db}, nil
 }
 
-func newSQLite(ctx context.Context, cfg Config, schema string) (*Database, error) {
-	if cfg.Database == "" {
-		return nil, fmt.Errorf("SQLite database path is required")
-	}
-
-	db, err := sqlx.Open("sqlite3", cfg.Database)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open SQLite database: %w", err)
-	}
-
-	if err = db.PingContext(ctx); err != nil {
-		return nil, fmt.Errorf("failed to ping SQLite database: %w", err)
-	}
-
-	if schema != "" {
-		if _, err = db.ExecContext(ctx, schema); err != nil {
-			return nil, fmt.Errorf("failed to execute schema: %w", err)
-		}
-	}
-
-	return &Database{db: db}, nil
-}
-
-// Close closes the database connection
 func (d *Database) Close() error {
 	return d.db.Close()
+}
+
+// RegisterServer ensures a server exists in the database
+func (d *Database) RegisterServer(serverID, serverName string) error {
+	_, err := d.db.Exec(
+		`INSERT INTO servers (server_id, server_name) 
+		VALUES ($1, $2) 
+		ON CONFLICT (server_id) DO UPDATE 
+		SET server_name = $2`,
+		serverID, serverName,
+	)
+	return err
+}
+
+// ServerExists checks if a server exists in the database
+func (d *Database) ServerExists(serverID string) (bool, error) {
+	var exists bool
+	err := d.db.QueryRow("SELECT EXISTS(SELECT 1 FROM servers WHERE server_id = $1)", serverID).Scan(&exists)
+	return exists, err
 }

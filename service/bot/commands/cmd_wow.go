@@ -107,6 +107,17 @@ func (c *wowCmd) AutocompleteHandler(cmd *Commander) handler.AutocompleteHandler
 }
 
 func (c *Commander) handleRegisterCharacter(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
+
+	// Check if server exists in database
+	exists, err := c.Database.ServerExists(e.GuildID().String())
+	if err != nil {
+		slog.Error("Failed to check server existence", tint.Err(err))
+		return e.CreateMessage(embeds.Error("An internal error occurred. Please try again later."))
+	}
+	if !exists {
+		return e.CreateMessage(embeds.Error("This server is not registered. Please wait a few minutes and try again."))
+	}
+
 	region := data.String("region")
 	realm := data.String("realm")
 	character := data.String("character")
